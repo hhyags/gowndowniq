@@ -53,14 +53,7 @@ export const Analytics: React.FC = () => {
       if (t.type === 'outflow') acc[month].sales += t.quantity;
       return acc;
     }, {})
-  ).map(([_, val]) => val) : [
-    { month: 'Jan', stock: 400, sales: 240 },
-    { month: 'Feb', stock: 300, sales: 139 },
-    { month: 'Mar', stock: 200, sales: 180 },
-    { month: 'Apr', stock: 278, sales: 390 },
-    { month: 'May', stock: 189, sales: 480 },
-    { month: 'Jun', stock: 239, sales: 380 },
-  ];
+  ).map(([_, val]) => val) : [];
 
   // Group by category for pie chart
   const categoryData = Object.entries(
@@ -168,41 +161,39 @@ export const Analytics: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
           >
-            <Card className="bg-orange-500/10 border-orange-500/30">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-orange-500 text-sm flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4" /> Demand Spike Detected
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-white font-medium mb-1">{prediction.growthTarget || 'Premium Mobile Series'}</p>
-                <p className="text-slate-400 text-xs">AI predicts a 24% increase in demand next cycle based on historical velocity.</p>
-              </CardContent>
-            </Card>
+            {prediction.predictions?.slice(0, 3).map((p: any, i: number) => (
+              <Card key={i} className="bg-orange-500/10 border-orange-500/30">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-orange-500 text-sm flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4" /> Demand Prediction
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-white font-medium mb-1">{p.productName}</p>
+                  <p className="text-slate-400 text-xs">{p.predictedDemand}</p>
+                  <div className="mt-2 h-1 w-full bg-slate-800 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-orange-500" 
+                      style={{ width: `${(p.confidence || 0.8) * 100}%` }}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
 
-            <Card className="bg-blue-500/10 border-blue-500/30">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-blue-500 text-sm flex items-center gap-2">
-                  <RefreshCw className="w-4 h-4" /> Reorder Suggested
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-white font-medium mb-1">Accessories & Chargers</p>
-                <p className="text-slate-400 text-xs">Current run-rate suggests stock-out in 8 days. Suggest ordering 50 units.</p>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-purple-500/10 border-purple-500/30">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-purple-500 text-sm flex items-center gap-2">
-                  <Sparkles className="w-4 h-4" /> Optimised Allocation
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-white font-medium mb-1">Global Shipments</p>
-                <p className="text-slate-400 text-xs">Move 15 units from Godown B to Godown A to reduce fulfilment lag.</p>
-              </CardContent>
-            </Card>
+            {prediction.reorderSuggestions?.slice(0, 3).map((s: any, i: number) => (
+              <Card key={i} className="bg-blue-500/10 border-blue-500/30">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-blue-500 text-sm flex items-center gap-2">
+                    <RefreshCw className="w-4 h-4" /> Reorder Suggested
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-white font-medium mb-1">{s.productName}</p>
+                  <p className="text-slate-400 text-xs">AI suggest ordering {s.suggestedQuantity} units soon.</p>
+                </CardContent>
+              </Card>
+            ))}
           </motion.div>
         )}
       </AnimatePresence>

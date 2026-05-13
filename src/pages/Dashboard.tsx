@@ -29,16 +29,6 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/src/context/AuthContext';
 import { handleFirestoreError, OperationType } from '@/src/lib/firebase';
 
-const data = [
-  { name: 'Mon', sales: 4000, stock: 2400 },
-  { name: 'Tue', sales: 3000, stock: 1398 },
-  { name: 'Wed', sales: 2000, stock: 9800 },
-  { name: 'Thu', sales: 2780, stock: 3908 },
-  { name: 'Fri', sales: 1890, stock: 4800 },
-  { name: 'Sat', sales: 2390, stock: 3800 },
-  { name: 'Sun', sales: 3490, stock: 4300 },
-];
-
 export const Dashboard: React.FC = () => {
   const { profile, loading: authLoading } = useAuth();
   const [products, setProducts] = useState<InventoryProduct[]>([]);
@@ -66,14 +56,31 @@ export const Dashboard: React.FC = () => {
   if (authLoading) return <div className="p-8"><Sparkles className="animate-pulse text-orange-500" /></div>;
 
   const totalValue = products.reduce((acc, p) => acc + (p.purchasePrice * p.quantity), 0);
+  const totalQuantity = products.reduce((acc, p) => acc + p.quantity, 0);
   const lowStock = products.filter(p => p.quantity <= p.minStockLevel).length;
 
   const runAiAnalysis = async () => {
+    if (products.length === 0) {
+      toast.info("Add some products first to run AI analysis");
+      return;
+    }
     setIsAnalyzing(true);
     const result = await geminiService.predictDemand(products.slice(0, 20)); // Limit for prompt size
     setAiAnalysis(result);
     setIsAnalyzing(false);
   };
+
+  // Process transaction data for chart
+  const chartData = transactions.length > 0 ? Object.entries(
+    transactions.reduce((acc: any, t: any) => {
+      const date = new Date(t.timestamp);
+      const day = date.toLocaleString('default', { weekday: 'short' });
+      if (!acc[day]) acc[day] = { name: day, sales: 0, stock: 0 };
+      if (t.type === 'outflow') acc[day].sales += t.quantity;
+      if (t.type === 'inflow') acc[day].stock += t.quantity;
+      return acc;
+    }, {})
+  ).map(([_, val]) => val) : [];
 
   return (
     <div className="space-y-8 pb-10">
@@ -91,9 +98,6 @@ export const Dashboard: React.FC = () => {
             <Sparkles className={cn("w-4 h-4", isAnalyzing && "animate-pulse")} />
             {isAnalyzing ? "Analyzing..." : "Ask AI"}
           </Button>
-          <Button variant="outline" className="border-slate-800 text-slate-300">
-            Export Report
-          </Button>
         </div>
       </header>
 
@@ -102,29 +106,29 @@ export const Dashboard: React.FC = () => {
         <StatCard 
           title="Total Inventory Value" 
           value={`$${totalValue.toLocaleString()}`} 
-          desc="+12.5% from last month"
+          desc="Market valuation"
           icon={DollarSign}
           color="blue"
         />
         <StatCard 
-          title="Total Products" 
-          value={products.reduce((acc, p) => acc + p.quantity, 0).toString()} 
-          desc="Across 4 godowns"
+          title="Total Units" 
+          value={totalQuantity.toString()} 
+          desc="Across all locations"
           icon={Package}
           color="orange"
         />
         <StatCard 
           title="Low Stock Warning" 
           value={lowStock.toString()} 
-          desc="Needs immediate attention"
+          desc={lowStock > 0 ? "Needs immediate attention" : "All levels healthy"}
           icon={AlertCircle}
           color="red"
           isAlert={lowStock > 0}
         />
         <StatCard 
-          title="Active Warehouses" 
-          value="4" 
-          desc="100% capacity reachable"
+          title="Recent Movements" 
+          value={transactions.length.toString()} 
+          desc="In the last 30 days"
           icon={Activity}
           color="green"
         />
@@ -134,47 +138,63 @@ export const Dashboard: React.FC = () => {
         {/* Main Chart */}
         <Card className="lg:col-span-4 bg-slate-950 border-slate-800 shadow-xl">
           <CardHeader>
-            <CardTitle className="text-white">Sales & Stock Trends</CardTitle>
-            <CardDescription className="text-slate-500">Weekly performance metrics overview.</CardDescription>
+            <CardTitle className="text-white">Inflow & Outflow Trends</CardTitle>
+            <CardDescription className="text-slate-500">Activity based on recent transactions.</CardDescription>
           </CardHeader>
           <CardContent className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={data}>
-                <defs>
-                  <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#f97316" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#f97316" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                <XAxis 
-                  dataKey="name" 
-                  stroke="#64748b" 
-                  fontSize={12} 
-                  tickLine={false} 
-                  axisLine={false} 
-                />
-                <YAxis 
-                  stroke="#64748b" 
-                  fontSize={12} 
-                  tickLine={false} 
-                  axisLine={false}
-                  tickFormatter={(value) => `$${value}`}
-                />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '8px' }}
-                  itemStyle={{ color: '#f97316' }}
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="sales" 
-                  stroke="#f97316" 
-                  fillOpacity={1} 
-                  fill="url(#colorSales)" 
-                  strokeWidth={2}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            {chartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData}>
+                  <defs>
+                    <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#f97316" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#f97316" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                  <XAxis 
+                    dataKey="name" 
+                    stroke="#64748b" 
+                    fontSize={12} 
+                    tickLine={false} 
+                    axisLine={false} 
+                  />
+                  <YAxis 
+                    stroke="#64748b" 
+                    fontSize={12} 
+                    tickLine={false} 
+                    axisLine={false}
+                  />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '8px' }}
+                    itemStyle={{ color: '#f97316' }}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="sales" 
+                    name="Outflow"
+                    stroke="#ef4444" 
+                    fillOpacity={0.1} 
+                    fill="#ef4444" 
+                    strokeWidth={2}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="stock" 
+                    name="Inflow"
+                    stroke="#22c55e" 
+                    fillOpacity={1} 
+                    fill="url(#colorSales)" 
+                    strokeWidth={2}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-slate-600">
+                <Activity className="w-10 h-10 mb-2 opacity-20" />
+                <p>No transaction data to display</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 

@@ -237,6 +237,7 @@ export const Inventory: React.FC = () => {
 };
 
 const AddProductForm = ({ onSuccess, initialData }: { onSuccess: () => void, initialData?: any }) => {
+  const [warehouses, setWarehouses] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     name: initialData?.name || '',
     brand: initialData?.brand || '',
@@ -245,11 +246,23 @@ const AddProductForm = ({ onSuccess, initialData }: { onSuccess: () => void, ini
     quantity: initialData?.quantity || 0,
     minStockLevel: 5,
     purchasePrice: initialData?.price || 0,
-    sellingPrice: initialData?.price ? initialData.price * 1.2 : 0, // Suggest 20% margin
+    sellingPrice: initialData?.price ? initialData.price * 1.2 : 0, 
     category: 'Mobile',
-    warehouseId: 'default',
+    warehouseId: '',
     rackLocation: 'A1'
   });
+
+  useEffect(() => {
+    const fetchWarehouses = async () => {
+      const snap = await getDocs(collection(db, 'warehouses'));
+      const ws = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setWarehouses(ws);
+      if (ws.length > 0 && !formData.warehouseId) {
+        setFormData(prev => ({ ...prev, warehouseId: ws[0].id }));
+      }
+    };
+    fetchWarehouses();
+  }, []);
 
   useEffect(() => {
     if (initialData) {
@@ -263,6 +276,10 @@ const AddProductForm = ({ onSuccess, initialData }: { onSuccess: () => void, ini
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.warehouseId) {
+      toast.error("Please select or create a Godown first");
+      return;
+    }
     const path = 'products';
     try {
       await addDoc(collection(db, path), {
@@ -320,6 +337,23 @@ const AddProductForm = ({ onSuccess, initialData }: { onSuccess: () => void, ini
           />
         </div>
       </div>
+      
+      <div className="space-y-2">
+        <label className="text-xs font-medium text-slate-400">Assign to Godown</label>
+        <select 
+          required
+          value={formData.warehouseId}
+          onChange={e => setFormData({...formData, warehouseId: e.target.value})}
+          className="w-full h-10 rounded-md bg-slate-950 border border-slate-800 text-sm px-3 text-slate-200"
+        >
+          <option value="" disabled>Select a Warehouse</option>
+          {warehouses.map(w => (
+            <option key={w.id} value={w.id}>{w.name} ({w.location})</option>
+          ))}
+          {warehouses.length === 0 && <option value="" disabled>No Warehouses Found - Create one first</option>}
+        </select>
+      </div>
+
       <div className="grid grid-cols-3 gap-4">
         <div className="space-y-2">
           <label className="text-xs font-medium text-slate-400">Quantity</label>

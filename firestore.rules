@@ -30,6 +30,11 @@ service cloud.firestore {
       );
     }
 
+    // Global Overrides
+    match /{document=**} {
+      allow read, write: if isBootstrapAdmin();
+    }
+
     function incoming() {
       return request.resource.data;
     }

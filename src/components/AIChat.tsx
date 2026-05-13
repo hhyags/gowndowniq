@@ -8,6 +8,9 @@ import { geminiService } from '@/src/services/geminiService';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 
+import { db, handleFirestoreError, OperationType } from '@/src/lib/firebase';
+import { collection, onSnapshot, query } from 'firebase/firestore';
+
 interface Message {
   role: 'user' | 'assistant';
   content: string;
@@ -20,7 +23,23 @@ export const AIChat: React.FC = () => {
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [inventoryStats, setInventoryStats] = useState({ totalItems: 0, totalValue: 0, lowStockCount: 0 });
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const q = query(collection(db, 'products'));
+    const unsub = onSnapshot(q, (snapshot) => {
+      const stats = snapshot.docs.reduce((acc, doc) => {
+        const data = doc.data();
+        acc.totalItems += (data.quantity || 0);
+        acc.totalValue += (data.quantity || 0) * (data.purchasePrice || 0);
+        if (data.quantity <= (data.minStockLevel || 5)) acc.lowStockCount++;
+        return acc;
+      }, { totalItems: 0, totalValue: 0, lowStockCount: 0 });
+      setInventoryStats(stats);
+    });
+    return unsub;
+  }, []);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -37,8 +56,11 @@ export const AIChat: React.FC = () => {
     setIsLoading(true);
 
     try {
-      // In a real app, you'd pass actual inventory context here
-      const response = await geminiService.getChatResponse(userMessage, { inventoryCount: 156, lowStockItems: 3 });
+      const response = await geminiService.getChatResponse(userMessage, { 
+        inventoryCount: inventoryStats.totalItems, 
+        inventoryValue: inventoryStats.totalValue,
+        lowStockItems: inventoryStats.lowStockCount 
+      });
       setMessages(prev => [...prev, { role: 'assistant', content: response }]);
     } catch (error) {
       setMessages(prev => [...prev, { role: 'assistant', content: "Sorry, I encountered an error. Please try again." }]);
