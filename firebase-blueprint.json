@@ -1,0 +1,91 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "System user with role-based access control.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "staff"] },
+        "warehouseId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Mobile device or accessory in inventory.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "brand": { "type": "string" },
+        "model": { "type": "string" },
+        "imei": { "type": "string" },
+        "sku": { "type": "string" },
+        "category": { "type": "string" },
+        "quantity": { "type": "number" },
+        "minStockLevel": { "type": "number" },
+        "purchasePrice": { "type": "number" },
+        "sellingPrice": { "type": "number" },
+        "supplier": { "type": "string" },
+        "warehouseId": { "type": "string" },
+        "rackLocation": { "type": "string" },
+        "status": { "type": "string", "enum": ["in-stock", "out-of-stock", "transferred"] },
+        "warrantyDetails": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "brand", "model", "quantity", "warehouseId"]
+    },
+    "Warehouse": {
+      "title": "Warehouse",
+      "description": "A physical godown location.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "location": { "type": "string" },
+        "capacity": { "type": "number" },
+        "managerId": { "type": "string" }
+      },
+      "required": ["name", "location"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Log of stock movement.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "productId": { "type": "string" },
+        "type": { "type": "string", "enum": ["inflow", "outflow", "transfer"] },
+        "quantity": { "type": "number" },
+        "fromWarehouseId": { "type": "string" },
+        "toWarehouseId": { "type": "string" },
+        "performedBy": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "notes": { "type": "string" }
+      },
+      "required": ["productId", "type", "quantity", "timestamp"]
+    }
+  },
+  "firestore": {
+    "users": {
+      "schema": "User",
+      "description": "Collection of system users."
+    },
+    "products": {
+      "schema": "Product",
+      "description": "Main inventory collection."
+    },
+    "warehouses": {
+      "schema": "Warehouse",
+      "description": "List of godown locations."
+    },
+    "transactions": {
+      "schema": "Transaction",
+      "description": "Audit log of all inventory movements."
+    }
+  }
+}
