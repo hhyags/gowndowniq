@@ -1,21 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Sidebar } from './components/Sidebar';
-import { Dashboard } from './pages/Dashboard';
-import { Inventory } from './pages/Inventory';
-import { Warehouses } from './pages/Warehouses';
-import { Transactions } from './pages/Transactions';
-import { Analytics } from './pages/Analytics';
-import { Settings } from './pages/Settings';
-import { Alerts } from './pages/Alerts';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Package, Menu, Search, Bell, User as UserIcon, Sparkles } from 'lucide-react';
+import { Package, Menu, Search, Bell, User as UserIcon, Sparkles, Loader2 } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
 import { AIChat } from './components/AIChat';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Card } from '@/components/ui/card';
 import { motion } from 'motion/react';
+
+// Lazy load pages for performance
+const Dashboard = lazy(() => import('./pages/Dashboard').then(m => ({ default: m.Dashboard })));
+const Inventory = lazy(() => import('./pages/Inventory'));
+const Warehouses = lazy(() => import('./pages/Warehouses'));
+const Transactions = lazy(() => import('./pages/Transactions'));
+const Analytics = lazy(() => import('./pages/Analytics'));
+const Settings = lazy(() => import('./pages/Settings'));
+const Alerts = lazy(() => import('./pages/Alerts'));
+
+const PageLoader = () => (
+  <div className="h-[60vh] flex items-center justify-center">
+    <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
+  </div>
+);
 
 const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth();
@@ -74,16 +82,18 @@ const Layout: React.FC = () => {
         {/* Content Area */}
         <div className="flex-1 overflow-y-auto p-4 md:p-8">
           <div className="max-w-7xl mx-auto">
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/inventory" element={<Inventory />} />
-              <Route path="/warehouses" element={<Warehouses />} />
-              <Route path="/transactions" element={<Transactions />} />
-              <Route path="/analytics" element={<Analytics />} />
-              <Route path="/alerts" element={<Alerts />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="*" element={<Navigate to="/" />} />
-            </Routes>
+            <Suspense fallback={<PageLoader />}>
+              <Routes>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/inventory" element={<Inventory />} />
+                <Route path="/warehouses" element={<Warehouses />} />
+                <Route path="/transactions" element={<Transactions />} />
+                <Route path="/analytics" element={<Analytics />} />
+                <Route path="/alerts" element={<Alerts />} />
+                <Route path="/settings" element={<Settings />} />
+                <Route path="*" element={<Navigate to="/" />} />
+              </Routes>
+            </Suspense>
           </div>
         </div>
       </main>

@@ -4,9 +4,10 @@ let genAIInstance: any = null;
 
 function getAI() {
   if (!genAIInstance) {
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      throw new Error("GEMINI_API_KEY is missing. Please set it in the Settings > Secrets panel.");
+      console.error("GEMINI_API_KEY is missing.");
+      throw new Error("GEMINI_API_KEY is missing. Please set it in your environment variables.");
     }
     genAIInstance = new GoogleGenAI({ apiKey });
   }

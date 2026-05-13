@@ -1,11 +1,19 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
-import firebaseConfig from '../../firebase-applet-config.json';
+import internalFirebaseConfig from '../../firebase-applet-config.json';
+
+// Use environment variables if present (for production), fallback to config file
+const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || internalFirebaseConfig.apiKey,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || internalFirebaseConfig.authDomain,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || internalFirebaseConfig.projectId,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || internalFirebaseConfig.storageBucket,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || internalFirebaseConfig.messagingSenderId,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || internalFirebaseConfig.appId,
+};
 
 const app = initializeApp(firebaseConfig);
-console.log("Firebase Init - Project:", firebaseConfig.projectId);
-console.log("Firebase Init - Database:", firebaseConfig.firestoreDatabaseId);
 export const db = getFirestore(app); // Default database
 export const auth = getAuth(app);
 

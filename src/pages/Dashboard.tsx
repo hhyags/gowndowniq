@@ -28,6 +28,7 @@ import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/src/context/AuthContext';
 import { handleFirestoreError, OperationType } from '@/src/lib/firebase';
+import { toast } from 'sonner';
 
 export const Dashboard: React.FC = () => {
   const { profile, loading: authLoading } = useAuth();

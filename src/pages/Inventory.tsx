@@ -36,7 +36,7 @@ import {
   DialogTitle, 
   DialogTrigger 
 } from '@/components/ui/dialog';
-import { collection, onSnapshot, query, addDoc, serverTimestamp, deleteDoc, doc } from 'firebase/firestore';
+import { collection, onSnapshot, query, addDoc, serverTimestamp, deleteDoc, doc, getDocs } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '@/src/lib/firebase';
 import { InventoryProduct } from '@/src/types';
 import { toast } from 'sonner';
