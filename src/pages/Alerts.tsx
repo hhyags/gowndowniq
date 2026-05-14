@@ -8,6 +8,7 @@ import { InventoryProduct } from '@/src/types';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '@/src/context/AuthContext';
+import { toast } from 'sonner';
 
 export const Alerts: React.FC = () => {
   const { profile } = useAuth();
@@ -100,10 +101,16 @@ export const Alerts: React.FC = () => {
                       <p className="text-[10px] text-slate-500 font-bold uppercase">Units Remaining</p>
                     </div>
                     <div className="flex gap-2">
-                      <button className="px-3 py-1 scale-90 rounded bg-slate-900 border border-slate-800 text-[10px] font-bold text-slate-400 hover:bg-slate-800 hover:text-white transition-all">
+                      <button 
+                        onClick={() => toast.success("Alert snoozed for 24 hours.")}
+                        className="px-3 py-1 scale-90 rounded bg-slate-900 border border-slate-800 text-[10px] font-bold text-slate-400 hover:bg-slate-800 hover:text-white transition-all"
+                      >
                         Ignore
                       </button>
-                      <button className="px-3 py-1 scale-90 rounded bg-orange-600 text-[10px] font-bold text-white hover:bg-orange-700 transition-all">
+                      <button 
+                        onClick={() => toast.info(`Restock requisition for ${p.name} created.`)}
+                        className="px-3 py-1 scale-90 rounded bg-orange-600 text-[10px] font-bold text-white hover:bg-orange-700 transition-all"
+                      >
                         Restock Now
                       </button>
                     </div>

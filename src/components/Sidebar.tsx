@@ -20,9 +20,10 @@ import { useAuth } from '@/src/context/AuthContext';
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
+  alertCount?: number;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, alertCount = 0 }) => {
   const { logout } = useAuth();
 
   const navItems = [
@@ -82,9 +83,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               >
                 <item.icon className="w-4 h-4" />
                 <span>{item.label}</span>
-                {item.path === '/alerts' && (
+                {item.path === '/alerts' && alertCount > 0 && (
                   <span className="ml-auto w-5 h-5 rounded-full bg-orange-600 text-[10px] flex items-center justify-center text-white font-bold">
-                    3
+                    {alertCount}
                   </span>
                 )}
               </NavLink>

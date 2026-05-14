@@ -29,9 +29,11 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/src/context/AuthContext';
 import { handleFirestoreError, OperationType } from '@/src/lib/firebase';
 import { toast } from 'sonner';
+import { Link, useNavigate } from 'react-router-dom';
 
 export const Dashboard: React.FC = () => {
   const { profile, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
   const [products, setProducts] = useState<InventoryProduct[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
@@ -251,7 +253,13 @@ export const Dashboard: React.FC = () => {
             <CardTitle className="text-white">Recent Transactions</CardTitle>
             <CardDescription className="text-slate-500">Latest stock movements across godowns.</CardDescription>
           </div>
-          <Button variant="ghost" className="text-orange-500 hover:text-orange-400">View All</Button>
+          <Button 
+            variant="ghost" 
+            onClick={() => navigate('/transactions')}
+            className="text-orange-500 hover:text-orange-400"
+          >
+            View All
+          </Button>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">

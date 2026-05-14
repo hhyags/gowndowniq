@@ -115,7 +115,11 @@ export const Warehouses: React.FC = () => {
                     </div>
                   </div>
 
-                  <Button variant="outline" className="w-full border-slate-800 text-xs gap-2 group-hover:bg-orange-500 group-hover:text-white transition-all">
+                  <Button 
+                    onClick={() => toast.info(`Detailed view for ${w.name} Godown is loading...`)}
+                    variant="outline" 
+                    className="w-full border-slate-800 text-xs gap-2 group-hover:bg-orange-500 group-hover:text-white transition-all"
+                  >
                     View Inventory Details <ArrowUpRight className="w-3 h-3" />
                   </Button>
                 </div>

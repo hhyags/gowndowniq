@@ -51,13 +51,39 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { InvoiceScanner } from '@/src/components/InvoiceScanner';
 import { useAuth } from '@/src/context/AuthContext';
+import { useSearchParams } from 'react-router-dom';
 
 export const Inventory: React.FC = () => {
   const { profile, loading: authLoading } = useAuth();
+  const [searchParams] = useSearchParams();
   const [products, setProducts] = useState<InventoryProduct[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(searchParams.get('q') || '');
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<InventoryProduct | null>(null);
   const [extractedData, setExtractedData] = useState<any>(null);
+
+  useEffect(() => {
+    const qParam = searchParams.get('q');
+    if (qParam) setSearchTerm(qParam);
+  }, [searchParams]);
+
+  const handleExport = () => {
+    if (products.length === 0) {
+      toast.error("No data to export");
+      return;
+    }
+    const csv = Papa.unparse(products);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `inventory_export_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("Inventory exported as CSV");
+  };
 
   const handleExtracted = (items: any[]) => {
     if (items && items.length > 0) {
@@ -110,7 +136,7 @@ export const Inventory: React.FC = () => {
           <p className="text-sm text-slate-400">Manage products, brands and stock levels across godowns.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="border-slate-800 text-slate-300">
+          <Button onClick={handleExport} variant="outline" className="border-slate-800 text-slate-300">
             <Download className="w-4 h-4 mr-2" /> Export
           </Button>
           <BulkImportDialog />
@@ -148,7 +174,7 @@ export const Inventory: React.FC = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <Button variant="outline" className="border-slate-800 text-slate-300">
+        <Button onClick={() => toast.info("Filter sidebar is coming in the next update.")} variant="outline" className="border-slate-800 text-slate-300">
           <Filter className="w-4 h-4 mr-2" /> Filters
         </Button>
       </div>
@@ -210,10 +236,16 @@ export const Inventory: React.FC = () => {
                         <MoreVertical className="h-4 w-4" />
                       </div>} />
                     <DropdownMenuContent align="end" className="bg-slate-900 border-slate-800 text-slate-300">
-                      <DropdownMenuItem className="focus:bg-slate-800 focus:text-white">
+                      <DropdownMenuItem 
+                        className="focus:bg-slate-800 focus:text-white"
+                        onClick={() => setEditingProduct(product)}
+                      >
                         <Edit className="w-4 h-4 mr-2" /> Edit Details
                       </DropdownMenuItem>
-                      <DropdownMenuItem className="focus:bg-slate-800 focus:text-white">
+                      <DropdownMenuItem 
+                        className="focus:bg-slate-800 focus:text-white"
+                        onClick={() => toast.info(`Viewing stock history for ${product.name}...`)}
+                      >
                         <History className="w-4 h-4 mr-2" /> Stock History
                       </DropdownMenuItem>
                       <DropdownMenuItem 
@@ -237,6 +269,21 @@ export const Inventory: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Edit Product Dialog */}
+      <Dialog open={!!editingProduct} onOpenChange={(open) => !open && setEditingProduct(null)}>
+        <DialogContent className="bg-slate-900 border-slate-800 text-white sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Edit Product: {editingProduct?.name}</DialogTitle>
+          </DialogHeader>
+          {editingProduct && (
+            <EditProductForm 
+              product={editingProduct} 
+              onSuccess={() => setEditingProduct(null)} 
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
@@ -468,6 +515,117 @@ const BulkImportDialog = () => {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+};
+
+const EditProductForm = ({ product, onSuccess }: { product: InventoryProduct, onSuccess: () => void }) => {
+  const [formData, setFormData] = useState({ ...product });
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSaving(true);
+    const { updateDoc, doc: firestoreDoc } = await import('firebase/firestore');
+    const path = `products/${product.id}`;
+    try {
+      // Remove id from data to save
+      const { id, ...updateData } = formData as any;
+      await updateDoc(firestoreDoc(db, 'products', product.id), {
+        ...updateData,
+        status: formData.quantity > 0 ? 'in-stock' : 'out-of-stock',
+        updatedAt: new Date().toISOString()
+      });
+      toast.success('Product updated successfully');
+      onSuccess();
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, path);
+      toast.error('Failed to update product');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4 pt-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <label className="text-xs font-medium text-slate-400">Product Name</label>
+          <Input 
+            required 
+            value={formData.name} 
+            onChange={e => setFormData({...formData, name: e.target.value})}
+            className="bg-slate-950 border-slate-800 focus:border-orange-500/50"
+          />
+        </div>
+        <div className="space-y-2">
+          <label className="text-xs font-medium text-slate-400">Brand</label>
+          <Input 
+            required 
+            value={formData.brand} 
+            onChange={e => setFormData({...formData, brand: e.target.value})}
+            className="bg-slate-950 border-slate-800 focus:border-orange-500/50"
+          />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <label className="text-xs font-medium text-slate-400">SKU / Code</label>
+          <Input 
+            required 
+            value={formData.sku} 
+            onChange={e => setFormData({...formData, sku: e.target.value})}
+            className="bg-slate-950 border-slate-800 focus:border-orange-500/50"
+          />
+        </div>
+        <div className="space-y-2">
+          <label className="text-xs font-medium text-slate-400">Model</label>
+          <Input 
+            required 
+            value={formData.model} 
+            onChange={e => setFormData({...formData, model: e.target.value})}
+            className="bg-slate-950 border-slate-800 focus:border-orange-500/50"
+          />
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-3 gap-4">
+        <div className="space-y-2">
+          <label className="text-xs font-medium text-slate-400">Quantity</label>
+          <Input 
+            type="number" 
+            required 
+            value={formData.quantity} 
+            onChange={e => setFormData({...formData, quantity: parseInt(e.target.value)})}
+            className="bg-slate-950 border-slate-800 focus:border-orange-500/50"
+          />
+        </div>
+        <div className="space-y-2">
+          <label className="text-xs font-medium text-slate-400">Selling Price</label>
+          <Input 
+            type="number" 
+            required 
+            value={formData.sellingPrice} 
+            onChange={e => setFormData({...formData, sellingPrice: parseFloat(e.target.value)})}
+            className="bg-slate-950 border-slate-800 focus:border-orange-500/50"
+          />
+        </div>
+        <div className="space-y-2">
+          <label className="text-xs font-medium text-slate-400">Min. Stock Level</label>
+          <Input 
+            type="number" 
+            required 
+            value={formData.minStockLevel} 
+            onChange={e => setFormData({...formData, minStockLevel: parseInt(e.target.value)})}
+            className="bg-slate-950 border-slate-800 focus:border-orange-500/50"
+          />
+        </div>
+      </div>
+      <DialogFooter className="pt-4 border-t border-slate-800">
+        <Button disabled={isSaving} type="submit" className="w-full bg-orange-600 hover:bg-orange-700 h-10 transition-all active:scale-95">
+          {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Update Product'}
+        </Button>
+      </DialogFooter>
+    </form>
   );
 };
 

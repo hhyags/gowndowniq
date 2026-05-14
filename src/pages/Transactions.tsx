@@ -11,12 +11,39 @@ import { History, Search, Filter, Download, ArrowUpRight, ArrowDownRight, Refres
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useAuth } from '@/src/context/AuthContext';
+import Papa from 'papaparse';
+import { toast } from 'sonner';
 
 export const Transactions: React.FC = () => {
   const { profile, loading: authLoading } = useAuth();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const handleExport = () => {
+    if (transactions.length === 0) {
+      toast.error("No data to export");
+      return;
+    }
+    const csv = Papa.unparse(transactions);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `transactions_export_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("Audit logs exported as CSV");
+  };
+
+  const filteredTransactions = transactions.filter(t => 
+    t.productId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    t.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    t.performedBy.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   useEffect(() => {
     if (authLoading || !profile) return;
@@ -50,7 +77,7 @@ export const Transactions: React.FC = () => {
           <p className="text-slate-400">Complete immutable record of all stock inflow and outflow.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="border-slate-800 text-slate-300">
+          <Button onClick={handleExport} variant="outline" className="border-slate-800 text-slate-300">
             <Download className="w-4 h-4 mr-2" /> Export CSV
           </Button>
         </div>
@@ -61,7 +88,12 @@ export const Transactions: React.FC = () => {
           <div className="flex flex-col md:flex-row gap-4 items-center">
             <div className="relative flex-1 w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-              <Input placeholder="Search by Product ID or Transaction ID..." className="pl-10 bg-slate-900 border-none" />
+              <Input 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search by Product ID or Transaction ID..." 
+                className="pl-10 bg-slate-900 border-none" 
+              />
             </div>
             <div className="flex items-center gap-2">
               <Button 
@@ -104,7 +136,7 @@ export const Transactions: React.FC = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {transactions.map((t) => (
+              {filteredTransactions.map((t) => (
                 <TableRow key={t.id} className="border-slate-800 hover:bg-slate-900/30">
                   <TableCell className="text-slate-300 text-xs font-mono">
                     {format(new Date(t.timestamp), 'yyyy-MM-dd HH:mm:ss')}

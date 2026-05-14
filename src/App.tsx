@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { Sidebar } from './components/Sidebar';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Package, Menu, Search, Bell, User as UserIcon, Sparkles, Loader2, AlertTriangle, Eye } from 'lucide-react';
+import { Package, Menu, Search, Bell, User as UserIcon, Sparkles, Loader2, AlertTriangle, Eye, LogOut } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
 import { toast } from 'sonner';
 import { AIChat } from './components/AIChat';
@@ -22,7 +22,7 @@ import {
 import { collection, onSnapshot, query, where, limit } from 'firebase/firestore';
 import { db } from '@/src/lib/firebase';
 import { InventoryProduct } from './types';
-import { Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 
 // Lazy load pages for performance
@@ -48,8 +48,20 @@ const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 
 const Layout: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [alerts, setAlerts] = useState<InventoryProduct[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const navigate = useNavigate();
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+    
+    // Redirect to inventory with search param
+    navigate(`/inventory?q=${encodeURIComponent(searchQuery)}`);
+    setSearchQuery('');
+    toast.info(`Searching for "${searchQuery}" in inventory...`);
+  };
 
   useEffect(() => {
     // Listen for low stock items globally for the notification bell
@@ -67,7 +79,7 @@ const Layout: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-slate-950 text-slate-50 font-sans">
-      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} alertCount={alerts.length} />
       
       <main className="flex-1 flex flex-col overflow-hidden lg:pl-64">
         {/* Top Header */}
@@ -81,28 +93,30 @@ const Layout: React.FC = () => {
             >
               <Menu className="w-5 h-5" />
             </Button>
-            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-900 rounded-full border border-slate-800">
+            <form onSubmit={handleSearch} className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-900 rounded-full border border-slate-800 focus-within:border-orange-500/50 transition-colors">
               <Search className="w-4 h-4 text-slate-500" />
               <input 
                 type="text" 
-                placeholder="Search command... (⌘K)" 
-                className="bg-transparent border-none text-xs focus:ring-0 w-48 placeholder:text-slate-600"
+                placeholder="Search inventory... (Press Enter)" 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="bg-transparent border-none text-xs focus:ring-0 w-48 placeholder:text-slate-600 text-slate-200 outline-none"
               />
-            </div>
+            </form>
           </div>
 
           <div className="flex items-center gap-2 md:gap-4">
             <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="relative text-slate-400 hover:text-white transition-colors">
+              <DropdownMenuTrigger render={
+                <div className="relative text-slate-400 hover:text-white transition-colors cursor-pointer p-2 rounded-lg hover:bg-slate-900">
                   <Bell className="w-5 h-5" />
                   {alerts.length > 0 && (
-                    <span className="absolute top-2 right-2 w-4 h-4 bg-orange-600 text-[10px] font-bold text-white flex items-center justify-center rounded-full border-2 border-slate-950 -mr-1 -mt-1">
+                    <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-orange-600 text-[10px] font-bold text-white flex items-center justify-center rounded-full border-2 border-slate-950">
                       {alerts.length}
                     </span>
                   )}
-                </Button>
-              </DropdownMenuTrigger>
+                </div>
+              } />
               <DropdownMenuContent align="end" className="w-80 bg-slate-900 border-slate-800 text-slate-200">
                 <DropdownMenuLabel className="flex justify-between items-center py-3">
                   <span>Inventory Alerts</span>
@@ -154,9 +168,24 @@ const Layout: React.FC = () => {
                 <p className="text-sm font-medium text-slate-200">{user?.displayName}</p>
                 <p className="text-[10px] text-slate-500 uppercase tracking-wider">Administrator</p>
               </div>
-              <Button size="icon" variant="ghost" className="rounded-full bg-slate-800 border border-slate-700">
-                <UserIcon className="w-4 h-4 text-slate-300" />
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger render={
+                  <div className="rounded-full bg-slate-800 border border-slate-700 p-2 cursor-pointer hover:bg-slate-700 transition-colors">
+                    <UserIcon className="w-4 h-4 text-slate-300" />
+                  </div>
+                } />
+                <DropdownMenuContent align="end" className="bg-slate-900 border-slate-800 text-slate-300 w-48">
+                  <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                  <DropdownMenuSeparator className="bg-slate-800" />
+                  <DropdownMenuItem onClick={() => navigate('/settings')} className="cursor-pointer">
+                    <UserIcon className="w-4 h-4 mr-2" /> Settings
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-slate-800" />
+                  <DropdownMenuItem onClick={logout} className="text-red-400 focus:bg-red-950 cursor-pointer">
+                    <LogOut className="w-4 h-4 mr-2" /> Logout
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </header>
