@@ -55,7 +55,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, alertCount = 
             <div className="w-8 h-8 rounded-lg bg-orange-600 flex items-center justify-center">
               <Package className="text-white w-5 h-5" />
             </div>
-            <h1 className="text-xl font-bold text-slate-50">SmartGodown</h1>
+            <h1 className="text-xl font-bold text-slate-50">Stockflow12 AI</h1>
             <Button 
               variant="ghost" 
               size="icon" 

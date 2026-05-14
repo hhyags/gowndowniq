@@ -59,7 +59,7 @@ export const geminiService = {
       const chat = ai.chats.create({
         model: "gemini-3-flash-preview",
         config: {
-          systemInstruction: `You are the Smart Godown Assistant. You help users manage their mobile store inventory. 
+          systemInstruction: `You are the Stockflow12 AI Assistant. You help users manage their mobile store inventory. 
             You have access to the current godown state: ${JSON.stringify(context)}.
             Be concise, professional, and data-driven.`
         }

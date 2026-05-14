@@ -244,7 +244,7 @@ const LoginPage: React.FC = () => {
           <Package className="text-white w-10 h-10" />
         </div>
         <div className="space-y-2">
-          <h1 className="text-4xl font-black text-white tracking-tighter">SmartGodown</h1>
+          <h1 className="text-4xl font-black text-white tracking-tighter">Stockflow12 AI</h1>
           <p className="text-slate-400">Next-gen AI Inventory Management for Mobile Stores</p>
         </div>
         

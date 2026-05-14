@@ -1,5 +1,5 @@
 {
-  "name": "Smart Godown AI Dashboard",
+  "name": "Stockflow12 AI",
   "description": "An AI-powered inventory and warehouse management system for mobile stores with predictive analytics and real-time tracking.",
   "requestFramePermissions": [
     "camera"

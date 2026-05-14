@@ -19,7 +19,7 @@ interface Message {
 export const AIChat: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'assistant', content: "Hello! I'm your Smart Godown Assistant. How can I help you manage your inventory today?" }
+    { role: 'assistant', content: "Hello! I'm your Stockflow12 AI Assistant. How can I help you manage your inventory today?" }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
