@@ -1,9 +1,16 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
+import { 
+  initializeFirestore, 
+  doc, 
+  getDocFromServer,
+  persistentLocalCache,
+  persistentMultipleTabManager
+} from 'firebase/firestore';
 import internalFirebaseConfig from '../../firebase-applet-config.json';
 
 // Use environment variables if present (for production), fallback to config file
+const isUsingEnv = !!import.meta.env.VITE_FIREBASE_API_KEY;
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || internalFirebaseConfig.apiKey,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || internalFirebaseConfig.authDomain,
@@ -13,8 +20,17 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID || internalFirebaseConfig.appId,
 };
 
+console.log(`Firebase using ${isUsingEnv ? 'environment variables' : 'embedded config file'}`);
+console.log(`Project ID: ${firebaseConfig.projectId}`);
+
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app); // Default database
+
+// Initialize Firestore with persistence and long polling for better resilience in preview/proxy environments
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+  experimentalForceLongPolling: true,
+}, internalFirebaseConfig.firestoreDatabaseId);
+
 export const auth = getAuth(app);
 
 export enum OperationType {
@@ -51,7 +67,9 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     path
   }
   console.error(`[Firestore ${operationType}] Error at ${path}:`, JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+  // We don't throw here to prevent full app crashes, 
+  // but we log it so the developer can see what's wrong.
+  return errInfo;
 }
 
 // Connectivity check
@@ -64,4 +82,4 @@ async function testConnection() {
     }
   }
 }
-testConnection();
+// testConnection();

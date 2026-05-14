@@ -10,8 +10,14 @@ import {
   Download,
   AlertCircle,
   Package,
-  Scan
+  Scan,
+  Upload,
+  FileText,
+  CheckCircle2,
+  XCircle,
+  Loader2
 } from 'lucide-react';
+import Papa from 'papaparse';
 import { 
   Table, 
   TableBody, 
@@ -34,9 +40,11 @@ import {
   DialogContent, 
   DialogHeader, 
   DialogTitle, 
-  DialogTrigger 
+  DialogTrigger,
+  DialogDescription,
+  DialogFooter
 } from '@/components/ui/dialog';
-import { collection, onSnapshot, query, addDoc, serverTimestamp, deleteDoc, doc, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot, query, addDoc, serverTimestamp, deleteDoc, doc, getDocs, writeBatch } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '@/src/lib/firebase';
 import { InventoryProduct } from '@/src/types';
 import { toast } from 'sonner';
@@ -105,12 +113,11 @@ export const Inventory: React.FC = () => {
           <Button variant="outline" className="border-slate-800 text-slate-300">
             <Download className="w-4 h-4 mr-2" /> Export
           </Button>
+          <BulkImportDialog />
           <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-            <DialogTrigger asChild>
-              <div className={cn(buttonVariants({ variant: "default" }), "bg-orange-600 hover:bg-orange-700 text-white cursor-pointer")}>
+          <DialogTrigger render={<div className={cn(buttonVariants({ variant: "default" }), "bg-orange-600 hover:bg-orange-700 text-white cursor-pointer inline-flex items-center justify-center")}>
                 <Plus className="w-4 h-4 mr-2" /> Add Product
-              </div>
-            </DialogTrigger>
+              </div>} />
             <DialogContent className="bg-slate-900 border-slate-800 text-white sm:max-w-[600px]">
               <DialogHeader>
                 <DialogTitle className="flex justify-between items-center">
@@ -199,11 +206,9 @@ export const Inventory: React.FC = () => {
                 </TableCell>
                 <TableCell>
                   <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <div className={cn(buttonVariants({ variant: "ghost" }), "h-8 w-8 p-0 text-slate-500 hover:text-white cursor-pointer inline-flex items-center justify-center")}>
+                  <DropdownMenuTrigger render={<div className={cn(buttonVariants({ variant: "ghost" }), "h-8 w-8 p-0 text-slate-500 hover:text-white cursor-pointer inline-flex items-center justify-center")}>
                         <MoreVertical className="h-4 w-4" />
-                      </div>
-                    </DropdownMenuTrigger>
+                      </div>} />
                     <DropdownMenuContent align="end" className="bg-slate-900 border-slate-800 text-slate-300">
                       <DropdownMenuItem className="focus:bg-slate-800 focus:text-white">
                         <Edit className="w-4 h-4 mr-2" /> Edit Details
@@ -233,6 +238,236 @@ export const Inventory: React.FC = () => {
         )}
       </div>
     </div>
+  );
+};
+
+const BulkImportDialog = () => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<any[]>([]);
+  const [errors, setErrors] = useState<string[]>([]);
+  const [isImporting, setIsImporting] = useState(false);
+  const [warehouses, setWarehouses] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchWarehouses = async () => {
+      const snap = await getDocs(collection(db, 'warehouses'));
+      setWarehouses(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    };
+    if (isOpen) fetchWarehouses();
+  }, [isOpen]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (selectedFile) {
+      if (selectedFile.type !== 'text/csv' && !selectedFile.name.endsWith('.csv')) {
+        toast.error('Please upload a valid CSV file');
+        return;
+      }
+      setFile(selectedFile);
+      parseCSV(selectedFile);
+    }
+  };
+
+  const parseCSV = (file: File) => {
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        const data = results.data;
+        const parseErrors: string[] = [];
+        
+        // Basic validation
+        const validatedData = data.map((row: any, index) => {
+          const rowNum = index + 2; // +1 for header, +1 for 1-based index
+          if (!row.name) parseErrors.push(`Row ${rowNum}: Name is required`);
+          if (!row.sku) parseErrors.push(`Row ${rowNum}: SKU is required`);
+          
+          return {
+            name: row.name || '',
+            brand: row.brand || '',
+            model: row.model || '',
+            sku: row.sku || '',
+            quantity: parseInt(row.quantity) || 0,
+            purchasePrice: parseFloat(row.purchasePrice) || 0,
+            sellingPrice: parseFloat(row.sellingPrice) || 0,
+            minStockLevel: parseInt(row.minStockLevel) || 5,
+            category: row.category || 'Mobile',
+            warehouseId: row.warehouseId || '',
+            rackLocation: row.rackLocation || 'A1'
+          };
+        });
+
+        setPreview(validatedData);
+        setErrors(parseErrors);
+      },
+      error: (error) => {
+        toast.error(`Error parsing CSV: ${error.message}`);
+      }
+    });
+  };
+
+  const handleImport = async () => {
+    if (preview.length === 0) return;
+    if (errors.length > 0) {
+      toast.error('Please fix errors before importing');
+      return;
+    }
+
+    setIsImporting(true);
+    const batch = writeBatch(db);
+    const productsRef = collection(db, 'products');
+
+    try {
+      // Check if warehouseIds exist if provided
+      const validWarehouseIds = warehouses.map(w => w.id);
+      
+      preview.forEach((item) => {
+        // If warehouseId is missing or invalid, assign to first available or leave empty
+        const finalWarehouseId = validWarehouseIds.includes(item.warehouseId) 
+          ? item.warehouseId 
+          : (validWarehouseIds.length > 0 ? validWarehouseIds[0] : '');
+
+        const newDocRef = doc(productsRef);
+        batch.set(newDocRef, {
+          ...item,
+          warehouseId: finalWarehouseId,
+          status: item.quantity > 0 ? 'in-stock' : 'out-of-stock',
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+      });
+
+      await batch.commit();
+      toast.success(`Successfully imported ${preview.length} products`);
+      setIsOpen(false);
+      setFile(null);
+      setPreview([]);
+    } catch (error) {
+      console.error('Import Error:', error);
+      toast.error('Failed to import products');
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+          <DialogTrigger render={<div className={cn(buttonVariants({ variant: "outline" }), "border-slate-800 text-slate-300 inline-flex items-center justify-center cursor-pointer")}>
+          <Upload className="w-4 h-4 mr-2" /> Bulk Import
+        </div>} />
+      <DialogContent className="bg-slate-900 border-slate-800 text-white sm:max-w-[700px] max-h-[85vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle>Bulk Product Import</DialogTitle>
+          <DialogDescription className="text-slate-400">
+            Upload a CSV file to import multiple products at once. Required columns: name, sku.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex-1 overflow-y-auto space-y-4 py-4 pr-1">
+          {!file ? (
+            <div 
+              className="border-2 border-dashed border-slate-800 rounded-xl p-10 text-center space-y-4 hover:border-orange-500/50 transition-colors cursor-pointer"
+              onClick={() => document.getElementById('csv-upload')?.click()}
+            >
+              <div className="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center mx-auto">
+                <FileText className="w-6 h-6 text-slate-400" />
+              </div>
+              <div>
+                <p className="text-sm font-medium">Click to upload CSV file</p>
+                <p className="text-xs text-slate-500 mt-1">or drag and drop here</p>
+              </div>
+              <input 
+                id="csv-upload" 
+                type="file" 
+                accept=".csv" 
+                className="hidden" 
+                onChange={handleFileChange}
+              />
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-3 bg-slate-950 rounded-lg border border-slate-800">
+                <div className="flex items-center gap-3">
+                  <FileText className="w-5 h-5 text-orange-500" />
+                  <div className="text-left">
+                    <p className="text-sm font-medium truncate max-w-[200px]">{file.name}</p>
+                    <p className="text-xs text-slate-500">{(file.size / 1024).toFixed(1)} KB</p>
+                  </div>
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => {setFile(null); setPreview([]); setErrors([]);}}
+                  className="text-slate-500 hover:text-red-400"
+                >
+                  Change File
+                </Button>
+              </div>
+
+              {errors.length > 0 && (
+                <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg space-y-2">
+                  <div className="flex items-center gap-2 text-red-400 text-sm font-bold">
+                    <XCircle className="w-4 h-4" /> Errors Found
+                  </div>
+                  <ul className="text-xs text-red-400/80 list-disc pl-4 space-y-1">
+                    {errors.slice(0, 5).map((err, i) => <li key={i}>{err}</li>)}
+                    {errors.length > 5 && <li>...and {errors.length - 5} more errors</li>}
+                  </ul>
+                </div>
+              )}
+
+              {preview.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Preview ({preview.length} items)</p>
+                  <div className="border border-slate-800 rounded-lg overflow-hidden">
+                    <Table>
+                      <TableHeader className="bg-slate-950">
+                        <TableRow className="border-slate-800">
+                          <TableHead className="h-8 text-[10px]">Name</TableHead>
+                          <TableHead className="h-8 text-[10px]">SKU</TableHead>
+                          <TableHead className="h-8 text-[10px] text-right">Price</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {preview.slice(0, 5).map((row, i) => (
+                          <TableRow key={i} className="border-slate-800 bg-slate-900/50">
+                            <TableCell className="py-2 text-[11px] truncate max-w-[120px]">{row.name}</TableCell>
+                            <TableCell className="py-2 text-[11px]">{row.sku}</TableCell>
+                            <TableCell className="py-2 text-[11px] text-right">${row.sellingPrice}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                    {preview.length > 5 && (
+                      <div className="p-2 text-center text-[10px] text-slate-500 bg-slate-950 border-t border-slate-800">
+                        + {preview.length - 5} more items
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="border-t border-slate-800 pt-4">
+          <Button variant="ghost" onClick={() => setIsOpen(false)} className="text-slate-400">Cancel</Button>
+          <Button 
+            disabled={!file || errors.length > 0 || isImporting}
+            onClick={handleImport}
+            className="bg-orange-600 hover:bg-orange-700 text-white min-w-[120px]"
+          >
+            {isImporting ? (
+              <Loader2 className="w-4 h-4 animate-spin mr-2" />
+            ) : (
+              <CheckCircle2 className="w-4 h-4 mr-2" />
+            )}
+            {isImporting ? 'Importing...' : 'Start Import'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };
 

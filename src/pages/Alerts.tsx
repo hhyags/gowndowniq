@@ -14,7 +14,8 @@ export const Alerts: React.FC = () => {
   const [lowStockProducts, setLowStockProducts] = useState<InventoryProduct[]>([]);
 
   useEffect(() => {
-    const q = query(collection(db, 'products'), where('quantity', '<', 10)); // Simple threshold for demo
+    // Threshold of 5 for Alerts page to match global notifications
+    const q = query(collection(db, 'products'), where('quantity', '<=', 5)); 
     const unsub = onSnapshot(q, (snapshot) => {
       setLowStockProducts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as InventoryProduct)));
     });
@@ -73,7 +74,11 @@ export const Alerts: React.FC = () => {
                     </div>
                     <div>
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs font-bold text-red-500 uppercase tracking-widest">Low Stock Alert</span>
+                        {p.quantity === 0 ? (
+                          <span className="text-[10px] font-bold px-2 py-0.5 bg-red-500 text-white rounded-full uppercase tracking-widest">Out of Stock</span>
+                        ) : (
+                          <span className="text-[10px] font-bold px-2 py-0.5 bg-orange-500/20 text-orange-500 border border-orange-500/20 rounded-full uppercase tracking-widest">Low Stock Alert</span>
+                        )}
                         <span className="text-[10px] text-slate-600 font-mono">• {p.id}</span>
                       </div>
                       <CardTitle className="text-white text-lg">

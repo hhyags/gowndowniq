@@ -3,12 +3,13 @@ import { collection, onSnapshot, query, addDoc, serverTimestamp, getDocs } from 
 import { db, handleFirestoreError, OperationType } from '@/src/lib/firebase';
 import { Warehouse as WarehouseType } from '@/src/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Plus, Warehouse as WarehouseIcon, MapPin, Package, Users, ArrowUpRight } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { motion } from 'motion/react';
+import { cn } from '@/lib/utils';
 import { useAuth } from '@/src/context/AuthContext';
 
 export const Warehouses: React.FC = () => {
@@ -52,11 +53,9 @@ export const Warehouses: React.FC = () => {
           <p className="text-slate-400">Track and manage inventory across multiple godown locations.</p>
         </div>
         <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-orange-600 hover:bg-orange-700">
+          <DialogTrigger render={<div className={cn(buttonVariants({ variant: "default" }), "bg-orange-600 hover:bg-orange-700 text-white cursor-pointer inline-flex items-center justify-center")}>
               <Plus className="w-4 h-4 mr-2" /> New Godown
-            </Button>
-          </DialogTrigger>
+            </div>} />
           <DialogContent className="bg-slate-900 border-slate-800 text-white">
             <DialogHeader>
               <DialogTitle>Add New Warehouse</DialogTitle>
